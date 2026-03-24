@@ -120,18 +120,28 @@ runs:
         git push origin "$BRANCH_NAME"
         
         # Build updates table from log
-        UPDATES_TABLE="| Action | Previous Version | Updated Version |\n|--------|------------------|-----------------|"
+        UPDATES_TABLE="| Action | Previous Version | Updated Version |"$'\n'"|--------|------------------|-----------------|"
         if [ -f /tmp/action-updates.log ]; then
           while IFS= read -r line; do
             if [ -n "$line" ]; then
-              UPDATES_TABLE="${UPDATES_TABLE}\n${line}"
+              UPDATES_TABLE="${UPDATES_TABLE}"$'\n'"${line}"
             fi
           done < /tmp/action-updates.log
         fi
         
-        # Replace placeholders in PR body
+        # Replace placeholders in PR body using a safer method
         TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
-        PR_BODY_FINAL=$(echo "$PR_BODY" | sed "s|{UPDATES_TABLE}|${UPDATES_TABLE}|g" | sed "s|{TIMESTAMP}|${TIMESTAMP}|g")
+        
+        # Write PR body to temp file and replace placeholders
+        echo "$PR_BODY" > /tmp/pr-body.txt
+        
+        # Replace {UPDATES_TABLE} placeholder
+        awk -v table="$UPDATES_TABLE" '{gsub(/{UPDATES_TABLE}/, table)}1' /tmp/pr-body.txt > /tmp/pr-body-step1.txt
+        
+        # Replace {TIMESTAMP} placeholder
+        awk -v ts="$TIMESTAMP" '{gsub(/{TIMESTAMP}/, ts)}1' /tmp/pr-body-step1.txt > /tmp/pr-body-final.txt
+        
+        PR_BODY_FINAL=$(cat /tmp/pr-body-final.txt)
         
         # Create PR using GitHub API
         REPO="${GITHUB_REPOSITORY}"
