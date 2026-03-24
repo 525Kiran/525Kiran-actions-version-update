@@ -22,11 +22,15 @@ I created this action to help teams keep their GitHub Actions dependencies up-to
 
 ```yaml
 - uses: actions/checkout@v4
+  with:
+    token: ${{ secrets.PAT_TOKEN }}
 
 - uses: 525Kiran/525Kiran-actions-version-update@v1
+  with:
+    github-token: ${{ secrets.PAT_TOKEN }}
 ```
 
-That's it! The action will scan all workflow files, update versions, and create a PR if updates are found.
+**Note:** A Personal Access Token (PAT) with `workflow` scope is required. See Setup Guide below.
 
 ### Complete Workflow Example
 
@@ -50,9 +54,13 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_TOKEN }}  # Required: PAT with 'workflow' scope
       
       - name: Update GitHub Actions versions
         uses: 525Kiran/525Kiran-actions-version-update@v1
+        with:
+          github-token: ${{ secrets.PAT_TOKEN }}  # Required: PAT with 'workflow' scope
 ```
 
 ### Custom Configuration
@@ -60,7 +68,7 @@ jobs:
 ```yaml
 - uses: 525Kiran/525Kiran-actions-version-update@v1
   with:
-    github-token: ${{ secrets.GITHUB_TOKEN }}
+    github-token: ${{ secrets.PAT_TOKEN }}
     git-user-name: 'dependency-bot'
     git-user-email: 'bot@example.com'
     pr-title: 'chore: update github actions to latest versions'
@@ -72,7 +80,7 @@ jobs:
 
 | Input | Description | Required | Default |
 |-------|-------------|----------|---------|
-| `github-token` | GitHub token for authentication and API requests | No | `${{ github.token }}` |
+| `github-token` | GitHub token with `workflow` scope (use PAT) | **Yes** | `${{ github.token }}` |
 | `git-user-name` | Git user name for commits | No | `github-actions[bot]` |
 | `git-user-email` | Git user email for commits | No | `github-actions[bot]@users.noreply.github.com` |
 | `pr-title` | Title for the pull request | No | `chore: update github actions versions` |
@@ -92,10 +100,29 @@ jobs:
 
 ### Basic Setup
 
-1. Create `.github/workflows/update-actions.yml` in your repository
-2. Copy the complete workflow example above
-3. Commit and push the workflow file
-4. The action will run on schedule or can be triggered manually
+**Important:** This action requires a Personal Access Token (PAT) with `workflow` scope because the default `GITHUB_TOKEN` cannot modify workflow files.
+
+1. **Create a Personal Access Token**
+   - Go to GitHub Settings → Developer settings → Personal access tokens → Tokens (classic)
+   - Click "Generate new token (classic)"
+   - Give it a name like "Actions Version Update"
+   - Select scopes: `repo` and `workflow`
+   - Click "Generate token" and copy it
+
+2. **Add PAT to Repository Secrets**
+   - Go to your repository → Settings → Secrets and variables → Actions
+   - Click "New repository secret"
+   - Name: `PAT_TOKEN`
+   - Value: Paste your PAT
+   - Click "Add secret"
+
+3. **Create Workflow File**
+   - Create `.github/workflows/update-actions.yml` in your repository
+   - Copy the complete workflow example above
+   - Commit and push the workflow file
+
+4. **Run the Action**
+   - The action will run on schedule or can be triggered manually via workflow_dispatch
 
 ### Recommended Schedule
 
@@ -155,24 +182,39 @@ This pull request updates GitHub Actions dependencies to their latest available 
 
 ## Troubleshooting
 
+### Error: "refusing to allow a GitHub App to create or update workflow"
+This is the most common error. The default `GITHUB_TOKEN` cannot modify workflow files.
+
+**Solution:** Use a Personal Access Token (PAT) with `workflow` scope:
+```yaml
+- uses: actions/checkout@v4
+  with:
+    token: ${{ secrets.PAT_TOKEN }}
+
+- uses: 525Kiran/525Kiran-actions-version-update@v1
+  with:
+    github-token: ${{ secrets.PAT_TOKEN }}
+```
+
 ### Action doesn't create PR
 - Verify all actions are not already up-to-date
 - Check workflow has required permissions
-- Ensure GitHub token has repo and workflow scopes
+- Ensure PAT has `repo` and `workflow` scopes
 - Verify Actions are enabled in repository settings
 
 ### API rate limiting
-- Use a Personal Access Token (PAT) instead of `GITHUB_TOKEN`
-- Add token to secrets and use: `github-token: ${{ secrets.PAT_TOKEN }}`
+- PAT tokens have higher rate limits than `GITHUB_TOKEN`
+- If you hit rate limits, consider running less frequently
 
 ### Permission denied errors
+- Ensure you're using a PAT with `workflow` scope (not `GITHUB_TOKEN`)
 - Add workflow permissions:
   ```yaml
   permissions:
     contents: write
     pull-requests: write
   ```
-- Or use a PAT with appropriate scopes
+- Verify PAT has `repo` and `workflow` scopes enabled
 
 ### Updates not detected
 - Ensure workflow files are in `.github/workflows/` directory
